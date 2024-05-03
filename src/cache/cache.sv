@@ -29,7 +29,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 module cache import cvw::*; #(parameter cvw_t P,
-                              parameter PA_BITS, XLEN, LINELEN,  NUMLINES,  NUMWAYS, LOGBWPL, WORDLEN, MUXINTERVAL, READ_ONLY_CACHE) (
+                              parameter PA_BITS, XLEN, LINELEN,  NUMLINES,  NUMWAYS, LOGBWPL, WORDLEN, MUXINTERVAL, CACHE_REPL, READ_ONLY_CACHE) (
   input  logic                   clk,
   input  logic                   reset,
   input  logic                   Stall,             // Stall the cache, preventing new accesses. In-flight access finished but does not return to READY
@@ -126,9 +126,15 @@ module cache import cvw::*; #(parameter cvw_t P,
 
   // Select victim way for associative caches
   if(NUMWAYS > 1) begin:vict
-    cacheLRU #(NUMWAYS, SETLEN, OFFSETLEN, NUMLINES) cacheLRU(
-      .clk, .reset, .FlushStage, .CacheEn, .HitWay, .ValidWay, .VictimWay, .CacheSetData, .CacheSetTag, .LRUWriteEn,
-      .SetValid, .ClearValid, .PAdr(PAdr[SETTOP-1:OFFSETLEN]), .InvalidateCache);
+    if(CACHE_REPL == 1) begin
+      cacheLRU #(NUMWAYS, SETLEN, OFFSETLEN, NUMLINES) cacheLRU(
+        .clk, .reset, .FlushStage, .CacheEn, .HitWay, .ValidWay, .VictimWay, .CacheSetData, .CacheSetTag, .LRUWriteEn,
+        .SetValid, .ClearValid, .PAdr(PAdr[SETTOP-1:OFFSETLEN]), .InvalidateCache);
+    end
+    else if(CACHE_REPL == 0) begin
+      cacheLFSR #(NUMWAYS, SETLEN, OFFSETLEN, NUMLINES) cacheLFSR(
+      .clk, .reset, .FlushStage, .ValidWay, .LRUWriteEn, .VictimWay);
+    end
   end else 
     assign VictimWay = 1'b1; // one hot.
 
