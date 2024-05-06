@@ -15,7 +15,7 @@ module cacheLFSR
   input  logic                reset,
   input  logic                FlushStage,
   input  logic [NUMWAYS-1:0]  ValidWay,        // Which ways for a particular set are valid, ignores tag
-  input  logic                LFSRWriteEn,      // Update the LFSR state
+  input  logic                LRUWriteEn,      // Update the LFSR state
   output logic [NUMWAYS-1:0]  VictimWay        // LFSR selects a victim to evict
 );
 
@@ -26,6 +26,7 @@ module cacheLFSR
 
     logic [NUMWAYS-1:0] FirstZero;
     logic [LOGNUMWAYS-1:0] FirstZeroWay;
+    logic [LOGNUMWAYS-1:0] VictimWayEnc;
 
     logic [LOGNUMWAYS+1:0] next;
     logic [LOGNUMWAYS+1:0] curr;
@@ -33,7 +34,7 @@ module cacheLFSR
     logic [LOGNUMWAYS+1:0] val;
 
     assign AllValid = &ValidWay;
-    assign RegEnable = !FlushStage & LFSRWriteEn;
+    assign RegEnable = !FlushStage & LRUWriteEn;
 
     assign val[0] = 1'b1;
     assign val[LOGNUMWAYS+1:1] = '0;
@@ -43,9 +44,11 @@ module cacheLFSR
     binencoder #(NUMWAYS) FirstZeroWayEncoder(FirstZero, FirstZeroWay);
 
     // On a miss we need to ignore HitWay and derive the new replacement bits with the VictimWay.
-    mux2 #(LOGNUMWAYS) WayMuxEnc(curr, VictimWayEnc, SetValid, Way);
+    mux2 #(LOGNUMWAYS) WayMuxEnc(FirstZeroWay, curr[LOGNUMWAYS-1:0], AllValid, VictimWayEnc);
 
-    flopenl #(LOGNUMWAYS+2) LFSR(clk,reset,LFSRWriteEn,next,val,curr);
+    decoder #(LOGNUMWAYS) decoder (VictimWayEnc, VictimWay);
+
+    flopenl #(LOGNUMWAYS+2) LFSR(clk,reset,LRUWriteEn,next,val,curr);
 
     assign next[LOGNUMWAYS:0] = curr[LOGNUMWAYS+1:1];
 
